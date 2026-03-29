@@ -7,3 +7,6 @@ pymupdf
 requests
 groq
 python-dotenv
+matplotlib
+numpy
+Pillow
