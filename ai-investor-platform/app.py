@@ -1,4 +1,14 @@
 import streamlit as st
+import os
+from dotenv import load_dotenv
+
+# ── API Key: works both locally and on Streamlit Cloud ────────
+load_dotenv()
+if not os.getenv("GROQ_API_KEY"):
+    try:
+        os.environ["GROQ_API_KEY"] = st.secrets["GROQ_API_KEY"]
+    except:
+        pass
 
 st.set_page_config(
     page_title="AI Investor Platform",
@@ -7,10 +17,8 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ── Global CSS ────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-/* ── Base ── */
 html, body, [data-testid="stAppViewContainer"] {
     background: #0A0E1A !important;
 }
@@ -21,8 +29,6 @@ html, body, [data-testid="stAppViewContainer"] {
 [data-testid="stSidebar"] > div:first-child {
     padding-top: 0 !important;
 }
-
-/* ── Sidebar header band ── */
 .sidebar-header {
     background: linear-gradient(135deg, #00D4AA15, #3B82F615);
     border-bottom: 1px solid #1E2A45;
@@ -43,8 +49,6 @@ html, body, [data-testid="stAppViewContainer"] {
     letter-spacing: 0.5px;
     text-transform: uppercase;
 }
-
-/* ── Live badge ── */
 .live-badge {
     display: inline-flex;
     align-items: center;
@@ -68,8 +72,6 @@ html, body, [data-testid="stAppViewContainer"] {
     0%,100% { opacity:1; }
     50%      { opacity:0.3; }
 }
-
-/* ── Nav section label ── */
 .nav-label {
     font-size: 0.62rem;
     color: #475569;
@@ -78,11 +80,7 @@ html, body, [data-testid="stAppViewContainer"] {
     text-transform: uppercase;
     padding: 12px 16px 4px;
 }
-
-/* ── Nav buttons ── */
-div[data-testid="stRadio"] > div {
-    gap: 2px !important;
-}
+div[data-testid="stRadio"] > div { gap: 2px !important; }
 div[data-testid="stRadio"] label {
     background: transparent !important;
     border-radius: 8px !important;
@@ -100,8 +98,6 @@ div[data-testid="stRadio"] label[data-checked="true"] {
     background: #00D4AA15 !important;
     border-color: #00D4AA40 !important;
 }
-
-/* ── Sidebar footer ── */
 .sidebar-footer {
     border-top: 1px solid #1E2A45;
     padding: 12px 16px;
@@ -128,29 +124,6 @@ div[data-testid="stRadio"] label[data-checked="true"] {
     font-size: 0.65rem;
     color: #94A3B8;
 }
-
-/* ── Top header bar ── */
-.topbar {
-    background: linear-gradient(90deg, #0F1629, #0A0E1A);
-    border-bottom: 1px solid #1E2A45;
-    padding: 10px 0 12px;
-    margin-bottom: 20px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-}
-.topbar-title {
-    font-size: 0.75rem;
-    color: #475569;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-}
-.topbar-right {
-    font-size: 0.72rem;
-    color: #00D4AA;
-}
-
-/* ── Streamlit overrides ── */
 .stButton > button {
     background: linear-gradient(135deg, #00D4AA, #0EA5E9) !important;
     color: #0A0E1A !important;
@@ -159,28 +132,16 @@ div[data-testid="stRadio"] label[data-checked="true"] {
     border-radius: 8px !important;
     transition: opacity 0.2s !important;
 }
-.stButton > button:hover {
-    opacity: 0.88 !important;
-}
-h1, h2, h3 {
-    color: #E2E8F0 !important;
-}
-.stSpinner > div {
-    border-top-color: #00D4AA !important;
-}
-[data-testid="stMetricValue"] {
-    color: #00D4AA !important;
-}
-hr {
-    border-color: #1E2A45 !important;
-}
+.stButton > button:hover { opacity: 0.88 !important; }
+h1, h2, h3 { color: #E2E8F0 !important; }
+.stSpinner > div { border-top-color: #00D4AA !important; }
+[data-testid="stMetricValue"] { color: #00D4AA !important; }
+hr { border-color: #1E2A45 !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# ── Sidebar ───────────────────────────────────────────────────────────────────
+# ── Sidebar ───────────────────────────────────────────────────
 with st.sidebar:
-
-    # Logo + header
     st.markdown("""
     <div class="sidebar-header">
         <div class="sidebar-logo">📈 <span>AI</span>nvestor</div>
@@ -191,10 +152,9 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
-    # Nav label
-    st.markdown('<div class="nav-label">Navigation</div>', unsafe_allow_html=True)
+    st.markdown('<div class="nav-label">Navigation</div>',
+                unsafe_allow_html=True)
 
-    # Navigation
     pages = [
         "🌐  Market Overview",
         "💼  Portfolio Insights",
@@ -204,7 +164,6 @@ with st.sidebar:
     ]
     page = st.radio("", pages, label_visibility="collapsed")
 
-    # Footer
     st.markdown("""
     <div class="sidebar-footer">
         <div class="powered-tag">Powered by</div>
@@ -217,7 +176,7 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
-# ── Page routing ──────────────────────────────────────────────────────────────
+# ── Page Routing ──────────────────────────────────────────────
 if page == "🌐  Market Overview":
     from pages_content.dashboard import show_dashboard
     show_dashboard()

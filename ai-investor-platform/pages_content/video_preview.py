@@ -10,8 +10,9 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import numpy as np
 
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-
+from dotenv import load_dotenv
+load_dotenv()
+client = Groq(api_key=os.getenv("GROQ_API_KEY")) 
 # ── Data ─────────────────────────────────────────────────────────────────────
 
 def get_market_data():
