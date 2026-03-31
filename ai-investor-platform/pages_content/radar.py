@@ -203,10 +203,28 @@ def render_card(stock, column_type):
 
 # ---------------- MAIN ----------------
 def show_radar():
+    import datetime
     st.title("📡 Opportunity Radar")
+
+    # ── Market status banner ──
+    now = datetime.datetime.now(
+        datetime.timezone(datetime.timedelta(hours=5, minutes=30))
+    )
+    market_open = now.weekday() < 5 and 9 <= now.hour < 16
+    status = "🟢 Market Open — Live Data updating every 15 min" if market_open else "🔴 Market Closed — Showing Last Session Data (opens 9:15 AM IST)"
+    color  = "#3fb950" if market_open else "#f85149"
+    st.markdown(f"""
+    <div style="background:#161b22;border:1px solid #30363d;
+    border-left:3px solid {color};border-radius:8px;
+    padding:10px 16px;margin-bottom:16px;font-size:0.85rem;color:{color}">
+        {status} · Scanning top 20 NSE stocks by signal strength
+    </div>
+    """, unsafe_allow_html=True)
 
     if "radar_data" not in st.session_state:
         st.session_state.radar_data = None
+    if "radar_scanned_at" not in st.session_state:
+        st.session_state.radar_scanned_at = None
 
     if st.button("🔍 Scan Market", key="scan_market_main", use_container_width=True):
         results = []
@@ -217,30 +235,43 @@ def show_radar():
                     results.append(d)
         results.sort(key=lambda x: x['signal_score'], reverse=True)
         st.session_state.radar_data = results
+        st.session_state.radar_scanned_at = now.strftime("%d %b %Y, %I:%M %p IST")
+
+    # ── Last scanned time ──
+    if st.session_state.radar_scanned_at:
+        st.caption(f"Last scanned: {st.session_state.radar_scanned_at}")
 
     if st.session_state.radar_data:
-        data = st.session_state.radar_data
-
+        data   = st.session_state.radar_data
         high   = [x for x in data if x['signal_score'] >= 5]
         medium = [x for x in data if 3 <= x['signal_score'] < 5]
         low    = [x for x in data if x['signal_score'] < 3]
 
-        c1, c2, c3 = st.columns(3)
+        # ── Summary bar ──
+        st.markdown(f"""
+        <div style="background:#161b22;border:1px solid #30363d;
+        border-radius:8px;padding:10px 16px;margin-bottom:12px;
+        font-size:0.85rem;color:#8b949e">
+            {len(data)} stocks with signals found —
+            <span style="color:#f85149">{len(high)} High</span> ·
+            <span style="color:#d29922">{len(medium)} Medium</span> ·
+            <span style="color:#3fb950">{len(low)} Low</span>
+        </div>
+        """, unsafe_allow_html=True)
 
+        c1, c2, c3 = st.columns(3)
         with c1:
             st.subheader("🔴 High Signals")
             if not high:
                 st.write("No signals")
             for s in high:
                 render_card(s, "high")
-
         with c2:
             st.subheader("🟡 Medium Signals")
             if not medium:
                 st.write("No signals")
             for s in medium:
                 render_card(s, "medium")
-
         with c3:
             st.subheader("🟢 Low Signals")
             if not low:
