@@ -14,12 +14,89 @@ POPULAR = [
     "WIPRO", "ICICIBANK", "MARUTI", "TITAN", "ITC"
 ]
 
+# ── Symbol normalizer ──────────────────────────────────────────
+SYMBOL_MAP = {
+    "TATA MOTORS": "TATAMOTORS",
+    "TATAMOTORS": "TATAMOTORS",
+    "TATA STEEL": "TATASTEEL",
+    "TATASTEEL": "TATASTEEL",
+    "TATA POWER": "TATAPOWER",
+    "TATA CONSULTANCY": "TCS",
+    "HDFC BANK": "HDFCBANK",
+    "HDFC": "HDFCBANK",
+    "ICICI BANK": "ICICIBANK",
+    "KOTAK": "KOTAKBANK",
+    "KOTAK BANK": "KOTAKBANK",
+    "SBI": "SBIN",
+    "STATE BANK": "SBIN",
+    "BAJAJ FINANCE": "BAJFINANCE",
+    "BAJAJ AUTO": "BAJAJ-AUTO",
+    "HERO": "HEROMOTOCO",
+    "HERO MOTOCORP": "HEROMOTOCO",
+    "ASIAN PAINTS": "ASIANPAINT",
+    "ULTRATECH": "ULTRACEMCO",
+    "ULTRA CEMENT": "ULTRACEMCO",
+    "SUN PHARMA": "SUNPHARMA",
+    "SUNPHARMA": "SUNPHARMA",
+    "ADANI": "ADANIENT",
+    "ADANI ENT": "ADANIENT",
+    "ADANI PORTS": "ADANIPORTS",
+    "MAHINDRA": "M&M",
+    "M AND M": "M&M",
+    "NESTLE": "NESTLEIND",
+    "HUL": "HINDUNILVR",
+    "HINDUSTAN UNILEVER": "HINDUNILVR",
+    "DR REDDY": "DRREDDY",
+    "DR. REDDY": "DRREDDY",
+    "TECH MAHINDRA": "TECHM",
+    "L&T": "LT",
+    "LARSEN": "LT",
+    "INDUSIND": "INDUSINDBK",
+    "INDUSIND BANK": "INDUSINDBK",
+    "POWER GRID": "POWERGRID",
+    "DIVIS": "DIVISLAB",
+    "DIVI": "DIVISLAB",
+    "BAJAJ FINSERV": "BAJAJFINSV",
+    "AXIS BANK": "AXISBANK",
+    "AXIS": "AXISBANK",
+    "COAL INDIA": "COALINDIA",
+    "JSPL": "JINDALSTEL",
+    "JINDAL": "JINDALSTEL",
+    "HAVELLS": "HAVELLS",
+    "PIDILITE": "PIDILITIND",
+    "BERGER": "BERGEPAINT",
+    "BERGER PAINTS": "BERGEPAINT",
+    "GODREJ": "GODREJCP",
+    "GODREJ CONSUMER": "GODREJCP",
+    "DABUR": "DABUR",
+    "MARICO": "MARICO",
+    "COLGATE": "COLPAL",
+    "COLGATE PALMOLIVE": "COLPAL",
+    "AMBUJA": "AMBUJACEM",
+    "AMBUJA CEMENT": "AMBUJACEM",
+    "ACC": "ACC",
+    "SHREE CEMENT": "SHREECEM",
+    "DLF": "DLF",
+    "TRENT": "TRENT",
+    "ZOMATO": "ZOMATO",
+    "PAYTM": "PAYTM",
+    "NYKAA": "FSN",
+    "POLICYBAZAAR": "POLICYBZR",
+}
+
+def normalize_symbol(raw: str) -> str:
+    # Remove .NS or .BSE suffix if user typed it
+    cleaned = raw.strip().upper()
+    cleaned = cleaned.replace(".NS", "").replace(".BSE", "").strip()
+    return SYMBOL_MAP.get(cleaned, cleaned)
+
 # ── Fetch + Indicators ─────────────────────────────────────────
 def get_stock_data(ticker):
     try:
-        df = yf.Ticker(f"{ticker}.NS").history(period="6mo")
+        symbol = normalize_symbol(ticker)
+        df = yf.Ticker(f"{symbol}.NS").history(period="6mo")
         if df is None or df.empty:
-            return None
+            return None, symbol
         df = df.copy()
         df['MA20'] = df['Close'].rolling(20).mean()
         df['MA50'] = df['Close'].rolling(50).mean()
@@ -27,9 +104,9 @@ def get_stock_data(ticker):
         bb = ta.volatility.BollingerBands(df['Close'], 20)
         df['BB_upper'] = bb.bollinger_hband()
         df['BB_lower'] = bb.bollinger_lband()
-        return df
+        return df, symbol
     except:
-        return None
+        return None, ticker
 
 # ── Main Chart ─────────────────────────────────────────────────
 def build_main_chart(df, ticker):
@@ -38,12 +115,9 @@ def build_main_chart(df, ticker):
         shared_xaxes=True,
         row_heights=[0.6, 0.2, 0.2],
         vertical_spacing=0.04,
-        subplot_titles=(
-            f"{ticker} Price", "Volume", "RSI"
-        )
+        subplot_titles=(f"{ticker} Price", "Volume", "RSI")
     )
 
-    # Candlestick
     fig.add_trace(go.Candlestick(
         x=df.index,
         open=df['Open'], high=df['High'],
@@ -54,20 +128,16 @@ def build_main_chart(df, ticker):
         showlegend=False
     ), row=1, col=1)
 
-    # MA lines
     fig.add_trace(go.Scatter(
         x=df.index, y=df['MA20'],
-        line=dict(color='#58a6ff', width=1.5),
-        name='MA20'
+        line=dict(color='#58a6ff', width=1.5), name='MA20'
     ), row=1, col=1)
 
     fig.add_trace(go.Scatter(
         x=df.index, y=df['MA50'],
-        line=dict(color='#d29922', width=1.5),
-        name='MA50'
+        line=dict(color='#d29922', width=1.5), name='MA50'
     ), row=1, col=1)
 
-    # Bollinger Bands
     fig.add_trace(go.Scatter(
         x=df.index, y=df['BB_upper'],
         line=dict(color='#8b949e', width=1, dash='dash'),
@@ -77,23 +147,19 @@ def build_main_chart(df, ticker):
     fig.add_trace(go.Scatter(
         x=df.index, y=df['BB_lower'],
         line=dict(color='#8b949e', width=1, dash='dash'),
-        fill='tonexty',
-        fillcolor='rgba(139,148,158,0.07)',
+        fill='tonexty', fillcolor='rgba(139,148,158,0.07)',
         name='BB Lower', showlegend=False
     ), row=1, col=1)
 
-    # Volume bars
     colors = [
         '#3fb950' if c >= o else '#f85149'
         for c, o in zip(df['Close'], df['Open'])
     ]
     fig.add_trace(go.Bar(
         x=df.index, y=df['Volume'],
-        marker_color=colors,
-        name='Volume', showlegend=False
+        marker_color=colors, name='Volume', showlegend=False
     ), row=2, col=1)
 
-    # RSI
     fig.add_trace(go.Scatter(
         x=df.index, y=df['RSI'],
         line=dict(color='#a371f7', width=2),
@@ -106,29 +172,17 @@ def build_main_chart(df, ticker):
                   line_color="#3fb950", line_width=1, row=3, col=1)
 
     fig.update_layout(
-        paper_bgcolor='#0d1117',
-        plot_bgcolor='#161b22',
+        paper_bgcolor='#0d1117', plot_bgcolor='#161b22',
         font=dict(color='#e6edf3'),
         xaxis_rangeslider_visible=False,
         height=620,
         margin=dict(l=0, r=0, t=40, b=0),
-        legend=dict(
-            bgcolor='#161b22',
-            bordercolor='#30363d',
-            orientation='h',
-            y=1.02
-        )
+        legend=dict(bgcolor='#161b22', bordercolor='#30363d',
+                    orientation='h', y=1.02)
     )
-
     for i in range(1, 4):
-        fig.update_xaxes(
-            gridcolor='#21262d',
-            showgrid=True, row=i, col=1
-        )
-        fig.update_yaxes(
-            gridcolor='#21262d',
-            showgrid=True, row=i, col=1
-        )
+        fig.update_xaxes(gridcolor='#21262d', showgrid=True, row=i, col=1)
+        fig.update_yaxes(gridcolor='#21262d', showgrid=True, row=i, col=1)
 
     return fig
 
@@ -138,15 +192,14 @@ def detect_patterns(df):
         return [], "NEUTRAL"
 
     latest = df.iloc[-1]
-    prev = df.iloc[-2]
+    prev   = df.iloc[-2]
     patterns = []
 
-    rsi = latest['RSI'] if not pd.isna(latest['RSI']) else 50
+    rsi  = latest['RSI'] if not pd.isna(latest['RSI']) else 50
     ma20 = latest['MA20']
     ma50 = latest['MA50']
     price = latest['Close']
 
-    # RSI
     if rsi >= 70:
         patterns.append(("warning", "RSI Overbought",
                          f"RSI {round(rsi,1)} — possible pullback",
@@ -160,7 +213,6 @@ def detect_patterns(df):
                          f"RSI {round(rsi,1)} — normal range",
                          "Monitor other signals"))
 
-    # MA Cross
     if not any(pd.isna(v) for v in [ma20, ma50, prev['MA20'], prev['MA50']]):
         if prev['MA20'] <= prev['MA50'] and ma20 > ma50:
             patterns.append(("opportunity", "Golden Cross",
@@ -179,7 +231,6 @@ def detect_patterns(df):
                              f"MA20 ₹{round(ma20,1)} < MA50 ₹{round(ma50,1)}",
                              "Downtrend — wait before buying"))
 
-    # Bollinger
     bb_u = latest['BB_upper']
     bb_l = latest['BB_lower']
     if not any(pd.isna(v) for v in [bb_u, bb_l]):
@@ -192,15 +243,9 @@ def detect_patterns(df):
                              "Price near lower band — support zone",
                              "Possible bounce — watch for entry"))
 
-    # Overall signal
-    opps = sum(1 for p in patterns if p[0] == "opportunity")
+    opps  = sum(1 for p in patterns if p[0] == "opportunity")
     warns = sum(1 for p in patterns if p[0] == "warning")
-    if opps > warns:
-        overall = "BULLISH"
-    elif warns > opps:
-        overall = "BEARISH"
-    else:
-        overall = "NEUTRAL"
+    overall = "BULLISH" if opps > warns else "BEARISH" if warns > opps else "NEUTRAL"
 
     return patterns, overall
 
@@ -224,17 +269,13 @@ Reply ONLY in this exact JSON format, nothing else:
     r = client.chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=[{"role": "user", "content": prompt}],
-        max_tokens=200,
-        temperature=0.2
+        max_tokens=200, temperature=0.2
     )
     return r.choices[0].message.content
 
 
 def render_ai_summary(raw_text):
-    import json
-    import re
-
-    # Extract JSON safely
+    import json, re
     try:
         match = re.search(r'\{.*\}', raw_text, re.DOTALL)
         if not match:
@@ -245,148 +286,74 @@ def render_ai_summary(raw_text):
         st.warning("AI response format error. Try again.")
         return
 
-    trend = data.get("trend", "Neutral")
-    rec = data.get("recommendation", "Watch")
-    risk = data.get("risk", "Medium")
-    momentum = data.get("momentum", "")
+    trend   = data.get("trend", "Neutral")
+    rec     = data.get("recommendation", "Watch")
+    risk    = data.get("risk", "Medium")
+    momentum= data.get("momentum", "")
     key_obs = data.get("key_observation", "")
-    watch = data.get("what_to_watch", "")
+    watch   = data.get("what_to_watch", "")
 
-    # Color maps
-    trend_color = (
-        "#3fb950" if trend == "Bullish"
-        else "#f85149" if trend == "Bearish"
-        else "#d29922"
-    )
-    rec_color = (
-        "#3fb950" if rec == "Buy"
-        else "#f85149" if rec == "Avoid"
-        else "#d29922"
-    )
-    risk_color = (
-        "#f85149" if risk == "High"
-        else "#d29922" if risk == "Medium"
-        else "#3fb950"
-    )
-    trend_icon = "📈" if trend == "Bullish" else "📉" if trend == "Bearish" else "➡️"
-    rec_icon = "✅" if rec == "Buy" else "❌" if rec == "Avoid" else "⏳"
-    risk_icon = "🔴" if risk == "High" else "🟡" if risk == "Medium" else "🟢"
+    trend_color = "#3fb950" if trend=="Bullish" else "#f85149" if trend=="Bearish" else "#d29922"
+    rec_color   = "#3fb950" if rec=="Buy" else "#f85149" if rec=="Avoid" else "#d29922"
+    risk_color  = "#f85149" if risk=="High" else "#d29922" if risk=="Medium" else "#3fb950"
+    trend_icon  = "📈" if trend=="Bullish" else "📉" if trend=="Bearish" else "➡️"
+    rec_icon    = "✅" if rec=="Buy" else "❌" if rec=="Avoid" else "⏳"
+    risk_icon   = "🔴" if risk=="High" else "🟡" if risk=="Medium" else "🟢"
 
-    # Row 1 — 3 metric cards
     c1, c2, c3 = st.columns(3)
-
-    with c1:
-        st.markdown(f"""
-        <div style="background:#161b22;border:1px solid #30363d;
-        border-top:3px solid {trend_color};border-radius:10px;
-        padding:16px;text-align:center">
-            <div style="font-size:1.6rem">{trend_icon}</div>
-            <div style="font-size:0.75rem;color:#8b949e;
-            margin:4px 0">TREND</div>
-            <div style="font-size:1.2rem;font-weight:700;
-            color:{trend_color}">{trend}</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with c2:
-        st.markdown(f"""
-        <div style="background:#161b22;border:1px solid #30363d;
-        border-top:3px solid {rec_color};border-radius:10px;
-        padding:16px;text-align:center">
-            <div style="font-size:1.6rem">{rec_icon}</div>
-            <div style="font-size:0.75rem;color:#8b949e;
-            margin:4px 0">RECOMMENDATION</div>
-            <div style="font-size:1.2rem;font-weight:700;
-            color:{rec_color}">{rec}</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with c3:
-        st.markdown(f"""
-        <div style="background:#161b22;border:1px solid #30363d;
-        border-top:3px solid {risk_color};border-radius:10px;
-        padding:16px;text-align:center">
-            <div style="font-size:1.6rem">{risk_icon}</div>
-            <div style="font-size:0.75rem;color:#8b949e;
-            margin:4px 0">RISK LEVEL</div>
-            <div style="font-size:1.2rem;font-weight:700;
-            color:{risk_color}">{risk}</div>
-        </div>
-        """, unsafe_allow_html=True)
+    for col, icon, label, val, color in [
+        (c1, trend_icon, "TREND", trend, trend_color),
+        (c2, rec_icon, "RECOMMENDATION", rec, rec_color),
+        (c3, risk_icon, "RISK LEVEL", risk, risk_color),
+    ]:
+        with col:
+            st.markdown(f"""
+            <div style="background:#161b22;border:1px solid #30363d;
+            border-top:3px solid {color};border-radius:10px;
+            padding:16px;text-align:center">
+                <div style="font-size:1.6rem">{icon}</div>
+                <div style="font-size:0.75rem;color:#8b949e;margin:4px 0">{label}</div>
+                <div style="font-size:1.2rem;font-weight:700;color:{color}">{val}</div>
+            </div>""", unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # Row 2 — 3 insight cards
     d1, d2, d3 = st.columns(3)
+    for col, color, label, text in [
+        (d1, "#58a6ff", "⚡ MOMENTUM", momentum),
+        (d2, "#a371f7", "🔍 KEY OBSERVATION", key_obs),
+        (d3, "#d29922", "👁️ WHAT TO WATCH", watch),
+    ]:
+        with col:
+            st.markdown(f"""
+            <div style="background:#161b22;border:1px solid #30363d;
+            border-radius:10px;padding:14px;min-height:100px">
+                <div style="font-size:0.75rem;color:{color};
+                font-weight:600;margin-bottom:6px">{label}</div>
+                <div style="font-size:0.85rem;color:#e6edf3;
+                line-height:1.6">{text}</div>
+            </div>""", unsafe_allow_html=True)
 
-    with d1:
-        st.markdown(f"""
-        <div style="background:#161b22;border:1px solid #30363d;
-        border-radius:10px;padding:14px;height:100px">
-            <div style="font-size:0.75rem;color:#58a6ff;
-            font-weight:600;margin-bottom:6px">
-                ⚡ MOMENTUM
-            </div>
-            <div style="font-size:0.85rem;color:#e6edf3;
-            line-height:1.6">{momentum}</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with d2:
-        st.markdown(f"""
-        <div style="background:#161b22;border:1px solid #30363d;
-        border-radius:10px;padding:14px;height:100px">
-            <div style="font-size:0.75rem;color:#a371f7;
-            font-weight:600;margin-bottom:6px">
-                🔍 KEY OBSERVATION
-            </div>
-            <div style="font-size:0.85rem;color:#e6edf3;
-            line-height:1.6">{key_obs}</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with d3:
-        st.markdown(f"""
-        <div style="background:#161b22;border:1px solid #30363d;
-        border-radius:10px;padding:14px;height:100px">
-            <div style="font-size:0.75rem;color:#d29922;
-            font-weight:600;margin-bottom:6px">
-                👁️ WHAT TO WATCH
-            </div>
-            <div style="font-size:0.85rem;color:#e6edf3;
-            line-height:1.6">{watch}</div>
-        </div>
-        """, unsafe_allow_html=True)
 # ── Page ───────────────────────────────────────────────────────
 def show_chart():
     st.markdown("# 📊 Chart Pattern Intelligence")
-    st.markdown(
-        "*Enter any NSE stock — AI detects patterns "
-        "and explains in plain English*"
-    )
+    st.markdown("*Enter any NSE stock — AI detects patterns and explains in plain English*")
     st.divider()
 
-    # Session state
-    for key, val in [
-        ("chart_df", None),
-        ("chart_ticker", None),
-        ("chart_ai", None)
-    ]:
+    for key, val in [("chart_df", None), ("chart_ticker", None), ("chart_ai", None)]:
         if key not in st.session_state:
             st.session_state[key] = val
 
-    # Input
     c1, c2 = st.columns([2, 1])
     with c1:
         ticker_input = st.text_input(
             "NSE Stock Symbol",
-            placeholder="e.g. RELIANCE, TCS, INFY"
+            placeholder="e.g. RELIANCE, TCS, TATA MOTORS, HDFC BANK"
         )
     with c2:
         st.markdown("<br>", unsafe_allow_html=True)
         go_btn = st.button("📊 Analyze", use_container_width=True)
 
-    # Quick select
     st.markdown("**Quick select:**")
     cols_a = st.columns(5)
     cols_b = st.columns(5)
@@ -405,58 +372,53 @@ def show_chart():
                 st.session_state.chart_ai = None
                 st.rerun()
 
-    # Set ticker from input
     if go_btn:
         if not ticker_input.strip():
             st.warning("Please enter a stock symbol.")
         else:
-            st.session_state.chart_ticker = ticker_input.upper().strip()
+            st.session_state.chart_ticker = ticker_input.strip()
             st.session_state.chart_df = None
             st.session_state.chart_ai = None
 
-    # Fetch data
+    # Fetch
     if st.session_state.chart_ticker and st.session_state.chart_df is None:
-        t = st.session_state.chart_ticker
-        with st.spinner(f"Fetching {t} data..."):
-            df = get_stock_data(t)
+        raw = st.session_state.chart_ticker
+        with st.spinner(f"Fetching data for {raw}..."):
+            df, clean_symbol = get_stock_data(raw)
             if df is None or df.empty:
-                st.error(f"No data found for '{t}'. Check symbol.")
+                st.error(
+                    f"No data found for **'{raw}'**. "
+                    f"Try the exact NSE symbol e.g. TATAMOTORS, HDFCBANK, BAJFINANCE"
+                )
                 st.session_state.chart_ticker = None
             else:
                 st.session_state.chart_df = df
+                st.session_state.chart_ticker = clean_symbol  # use clean symbol
 
     # Render
     if st.session_state.chart_df is not None:
-        df = st.session_state.chart_df
+        df     = st.session_state.chart_df
         ticker = st.session_state.chart_ticker
 
-        price = round(df['Close'].iloc[-1], 2)
-        start = round(df['Close'].iloc[0], 2)
+        price  = round(df['Close'].iloc[-1], 2)
+        start  = round(df['Close'].iloc[0], 2)
         change = round(((price - start) / start) * 100, 2)
         high6m = round(df['High'].max(), 2)
-        low6m = round(df['Low'].min(), 2)
-        rsi_val = round(df['RSI'].iloc[-1], 1)
+        low6m  = round(df['Low'].min(), 2)
+        rsi_val= round(df['RSI'].iloc[-1], 1)
 
         patterns, overall = detect_patterns(df)
 
-        # Overall badge
-        ov_color = (
-            "#3fb950" if overall == "BULLISH"
-            else "#f85149" if overall == "BEARISH"
-            else "#d29922"
-        )
+        ov_color = "#3fb950" if overall=="BULLISH" else "#f85149" if overall=="BEARISH" else "#d29922"
         st.markdown(f"""
         <div style="text-align:center;margin:12px 0">
             <span style="background:{ov_color}22;color:{ov_color};
-            padding:6px 24px;border-radius:30px;
-            font-size:1rem;font-weight:700;
-            border:1px solid {ov_color}">
+            padding:6px 24px;border-radius:30px;font-size:1rem;
+            font-weight:700;border:1px solid {ov_color}">
                 Overall Signal: {overall}
             </span>
-        </div>
-        """, unsafe_allow_html=True)
+        </div>""", unsafe_allow_html=True)
 
-        # Metrics
         m1, m2, m3, m4, m5 = st.columns(5)
         m1.metric("Price", f"₹{price:,}")
         m2.metric("6M Change", f"{change}%", delta=f"{change}%")
@@ -464,58 +426,35 @@ def show_chart():
         m4.metric("6M Low", f"₹{low6m:,}")
         m5.metric("RSI", rsi_val)
 
-        # Main chart
-        st.plotly_chart(
-            build_main_chart(df, ticker),
-            use_container_width=True,
-            key="main_chart"
-        )
-
+        st.plotly_chart(build_main_chart(df, ticker),
+                        use_container_width=True, key="main_chart")
         st.divider()
 
-        # Patterns
         st.markdown("### 🔍 Detected Patterns")
-        pat_count = len(patterns)
-        opp_count = sum(1 for p in patterns if p[0] == "opportunity")
-        warn_count = sum(1 for p in patterns if p[0] == "warning")
-
+        opp_count  = sum(1 for p in patterns if p[0]=="opportunity")
+        warn_count = sum(1 for p in patterns if p[0]=="warning")
         st.markdown(f"""
         <div style="background:#161b22;border:1px solid #30363d;
         border-radius:8px;padding:10px 16px;margin-bottom:12px;
         font-size:0.85rem;color:#8b949e">
-            {pat_count} patterns detected —
+            {len(patterns)} patterns detected —
             <span style="color:#3fb950">{opp_count} opportunity</span> ·
             <span style="color:#f85149">{warn_count} warning</span>
-        </div>
-        """, unsafe_allow_html=True)
+        </div>""", unsafe_allow_html=True)
 
         for p_type, p_name, p_detail, p_action in patterns:
-            icon = (
-                "🟢" if p_type == "opportunity"
-                else "🔴" if p_type == "warning"
-                else "🟡"
-            )
-            color = (
-                "#3fb950" if p_type == "opportunity"
-                else "#f85149" if p_type == "warning"
-                else "#d29922"
-            )
+            icon  = "🟢" if p_type=="opportunity" else "🔴" if p_type=="warning" else "🟡"
+            color = "#3fb950" if p_type=="opportunity" else "#f85149" if p_type=="warning" else "#d29922"
             st.markdown(f"""
             <div style="background:#161b22;border-left:3px solid {color};
             border-radius:8px;padding:12px 16px;margin-bottom:8px">
-                <div style="font-weight:600;color:{color};
-                margin-bottom:4px">{icon} {p_name}</div>
-                <div style="font-size:0.88rem;color:#8b949e;
-                margin-bottom:4px">{p_detail}</div>
-                <div style="font-size:0.88rem;color:#e6edf3">
-                    💡 {p_action}
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+                <div style="font-weight:600;color:{color};margin-bottom:4px">
+                    {icon} {p_name}</div>
+                <div style="font-size:0.88rem;color:#8b949e;margin-bottom:4px">
+                    {p_detail}</div>
+                <div style="font-size:0.88rem;color:#e6edf3">💡 {p_action}</div>
+            </div>""", unsafe_allow_html=True)
 
-        st.divider()
-
-        # AI Summary
         st.divider()
         st.markdown("### 🤖 AI Analysis")
         if st.button("🧠 Get AI Explanation", use_container_width=True):
