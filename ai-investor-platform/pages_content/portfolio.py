@@ -15,7 +15,7 @@ sample_funds = [
 
 # ---------------- SIMULATION ----------------
 def simulate_current_value(amount):
-    change_pct = random.uniform(-0.08, 0.12)
+    change_pct = random.uniform(-0.05, 0.08)
     current = amount * (1 + change_pct)
     pnl = current - amount
     pnl_pct = (pnl / amount) * 100
@@ -32,16 +32,20 @@ def extract_text_from_pdf(pdf_file):
 def extract_funds_from_text(text):
     funds = []
     for line in text.split('\n'):
-        if "fund" in line.lower():
+        if any(k in line.lower() for k in ['fund', 'scheme', 'direct']):
             match = re.search(r'[\d,]+\.?\d*', line)
             if match:
-                amount = float(match.group().replace(',', ''))
-                funds.append({"fund_name": line[:60], "amount": amount})
+                try:
+                    amount = float(match.group().replace(',', ''))
+                    if amount > 100:
+                        funds.append({"fund_name": line[:60], "amount": amount})
+                except:
+                    pass
     return funds[:10]
 
 # ---------------- CHART ----------------
 def build_donut_chart(data):
-    labels = [f['fund_name'][:25] for f in data]
+    labels = [f['fund_name'][:20] + "..." for f in data]
     values = [f['amount'] for f in data]
 
     fig = go.Figure(data=[go.Pie(
@@ -57,106 +61,83 @@ def build_donut_chart(data):
         paper_bgcolor='#0d1117',
         font=dict(color='white'),
         annotations=[dict(
-            text=f"₹{total/100000:.1f}L<br>Total",
+            text=f'₹{total/100000:.1f}L<br>Total',
             x=0.5, y=0.5,
             showarrow=False
         )]
     )
+
     return fig
 
 # ---------------- MAIN ----------------
 def show_portfolio():
 
-    st.markdown("# 📂 Portfolio Analyzer")
-    st.markdown("*Upload your CAMS statement and get insights*")
-    st.divider()
+    st.title("📂 Portfolio Analyzer")
+    st.markdown("Upload your CAMS statement or use sample portfolio")
 
     if "portfolio_data" not in st.session_state:
         st.session_state.portfolio_data = None
 
-    # -------- UPLOAD SECTION (RESTORED) --------
     col1, col2 = st.columns(2)
 
+    # -------- LEFT --------
     with col1:
         uploaded_file = st.file_uploader("Upload CAMS PDF", type=['pdf'])
 
-        if st.button("📊 Use Sample Portfolio"):
+        if st.button("Use Sample Portfolio"):
             st.session_state.portfolio_data = sample_funds
-            st.success("Sample loaded")
 
         if uploaded_file:
             text = extract_text_from_pdf(uploaded_file)
             data = extract_funds_from_text(text)
             st.session_state.portfolio_data = data if data else sample_funds
 
+    # -------- RIGHT --------
     with col2:
-        st.info("""
-        How to get CAMS:
-        1. Go to camsonline.com  
-        2. Download CAS  
-        3. Upload here  
-        """)
+        st.info("Tip: Upload CAMS statement from camsonline.com")
 
-    # -------- DISPLAY --------
+    # -------- DATA --------
     if st.session_state.portfolio_data:
 
         data = st.session_state.portfolio_data
         total = sum(f['amount'] for f in data)
 
-        st.divider()
-
         st.markdown(f"## ₹{total:,.0f}")
 
-        ch_col, mt_col = st.columns([1.2, 1])
+        # -------- LAYOUT --------
+        col_chart, col_hold = st.columns([1.2, 1])
 
         # -------- CHART --------
-        with ch_col:
+        with col_chart:
             st.subheader("Portfolio Allocation")
             fig = build_donut_chart(data)
             st.plotly_chart(fig, use_container_width=True)
 
-        # -------- HOLDINGS (FIXED UI) --------
-        with mt_col:
+        # -------- HOLDINGS --------
+        with col_hold:
             st.subheader("Holdings Summary")
 
             for f in data:
                 current, pnl, pnl_pct = simulate_current_value(f['amount'])
-                color = "green" if pnl >= 0 else "red"
 
-                st.markdown(
-                    f"""
-                    **{f['fund_name'][:35]}**
+                st.write(f"**{f['fund_name']}**")
+                st.caption(f"Invested: ₹{f['amount']:,.0f}")
 
-                    Invested: ₹{f['amount']:,.0f}  
-                    Current: ₹{current:,.0f}  
-                    <span style='color:{color}'>
-                    {'▲' if pnl>=0 else '▼'} ₹{pnl:,.0f} ({pnl_pct:.2f}%)
-                    </span>
-                    """,
-                    unsafe_allow_html=True
-                )
-                st.markdown("---")
+                if pnl >= 0:
+                    st.success(f"▲ ₹{pnl:,.0f} ({pnl_pct:.2f}%)")
+                else:
+                    st.error(f"▼ ₹{pnl:,.0f} ({pnl_pct:.2f}%)")
 
-        # -------- DETAILS --------
-        st.divider()
+                st.write(f"Current Value: ₹{current:,.0f}")
+                st.divider()
+
+        # -------- INSIGHTS --------
         st.subheader("Detailed Insights")
 
         for f in data:
             current, pnl, pnl_pct = simulate_current_value(f['amount'])
 
-            suggestion = (
-                "Good performance — hold"
-                if pnl > 0 else
-                "Underperforming — review"
-            )
-
-            st.markdown(
-                f"""
-                **{f['fund_name']}**
-
-                Current: ₹{current:,.0f}  
-                P&L: ₹{pnl:,.0f} ({pnl_pct:.2f}%)  
-                💡 {suggestion}
-                """
-            )
-            st.markdown("---")
+            if pnl > 0:
+                st.success(f"{f['fund_name']} → Performing well")
+            else:
+                st.warning(f"{f['fund_name']} → Needs review")
